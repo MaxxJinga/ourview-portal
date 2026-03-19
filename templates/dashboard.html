@@ -5,15 +5,76 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>School Portal - Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Styles for the speaking highlight and video tiles */
-        .speaking-border { border: 4px solid #10b981 !important; box-shadow: 0 0 15px #10b981; }
-        .video-tile { transition: all 0.3s ease; position: relative; overflow: hidden; background: #1e293b; border-radius: 1rem; border: 2px solid #334155; }
-        .user-label { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); color: white; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; pointer-events: none; }
-    </style>
-</head><header style="text-align: center; padding: 20px; background: #f8f9fa; border-bottom: 1px solid #ddd;">
-    <h1 style="margin: 0; color: #333;">HIVE-MYND ACADEMY</h1>
+    /* 1. HEADER & LOGO STYLES */
+    header a:hover img {
+        transform: scale(1.05); /* Grows logo by 5% */
+        transition: 0.3s;
+    }
+
+    /* 2. NEW ORANGE BUTTONS */
+    .btn-primary {
+        background-color: #F97316; /* Modern Orange */
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-family: 'Inter', sans-serif;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-primary:hover {
+        background-color: #EA580C; /* Darker orange on hover */
+        transform: translateY(-2px); /* Slight lift effect */
+    }
+
+    /* 3. VIDEO TILES & CLASSROOM STYLES (Keep these!) */
+    .speaking-border { 
+        border: 4px solid #10b981 !important; 
+        box-shadow: 0 0 15px #10b981; 
+    }
+
+    .video-tile { 
+        transition: all 0.3s ease; 
+        position: relative; 
+        overflow: hidden; 
+        background: #1e293b; 
+        border-radius: 1rem; 
+        border: 2px solid #334155; 
+    }
+
+    .user-label { 
+        position: absolute; 
+        bottom: 8px; 
+        left: 8px; 
+        background: rgba(0,0,0,0.6); 
+        color: white; 
+        padding: 2px 8px; 
+        border-radius: 4px; 
+        font-size: 10px; 
+        font-weight: bold; 
+        pointer-events: none; 
+    }
+</style>
+</head><header style="display: flex; flex-direction: column; align-items: center; padding: 25px 20px; background: #ffffff; border-bottom: 1px solid #f0f0f0;">
+    
+    <a href="/" style="text-decoration: none; display: flex; flex-direction: column; align-items: center;">
+        
+        <img src="{{ url_for('static', filename='logo.png') }}" 
+             alt="Ourview Logo" 
+             style="height: 100px; width: auto; display: block; transition: transform 0.3s ease;">
+             
+        <p style="margin: 10px 0 0 0; font-family: 'Inter', sans-serif; color: #F97316; font-size: 0.85rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;">
+            Lerne mit uns...
+        </p>
+        
+    </a>
 </header>
 <body class="bg-slate-50 font-sans min-h-screen">
 
@@ -496,7 +557,7 @@
 </body>
 <footer style="text-align: center; padding: 20px; margin-top: 50px; font-size: 0.9em; color: #666;">
     <hr>
-    <p>&copy; 2026 Hive-Mynd. All Rights Reserved.</p>
+    <p>&copy; 2026 Ourview. All Rights Reserved.</p>
     <p><a href="#">Impressum</a> | <a href="#">Contact Support</a></p>
 </footer>
 </html>
