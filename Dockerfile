@@ -14,4 +14,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Start the server (matching your SocketIO setup)
-CMD ["gunicorn", "-k", "geventwebsocket.gthread.GthreadWorker", "-w", "1", "--bind", "0.0.0.0:8080", "app:app"]
+CMD ["gunicorn", "-k", "geventwebsocket.gunicorn.workers.GeventWebSocketWorker", "-w", "1", "--bind", "0.0.0.0:8080", "app:app"]
