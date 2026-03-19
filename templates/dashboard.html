@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>School Portal - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Styles for the speaking highlight and video tiles */
+        .speaking-border { border: 4px solid #10b981 !important; box-shadow: 0 0 15px #10b981; }
+        .video-tile { transition: all 0.3s ease; position: relative; overflow: hidden; background: #1e293b; border-radius: 1rem; border: 2px solid #334155; }
+        .user-label { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); color: white; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; pointer-events: none; }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans min-h-screen">
+
+    {% if notifications %}
+    <div class="max-w-4xl mx-auto px-4 mt-6">
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-xl shadow-sm flex justify-between items-center">
+            <div class="flex items-center">
+                <span class="text-xl mr-3">🔔</span>
+                <div class="flex-1">
+                    <h3 class="text-sm font-bold text-yellow-800">New Alerts</h3>
+                    <ul class="text-xs text-yellow-700 mt-1 list-disc list-inside">
+                        {% for note in notifications %}<li>{{ note.message }}</li>{% endfor %}
+                    </ul>
+                </div>
+            </div>
+            <a href="/clear_notifications" class="text-xs font-bold text-yellow-600 hover:underline">Mark as Read</a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="max-w-7xl mx-auto py-12 px-4"> <div class="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
+            
+            <div class="bg-indigo-600 p-8 text-white flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold">Hello, {{ username }}! 👋</h1>
+                    <p class="mt-2 opacity-80 uppercase text-xs font-bold tracking-widest">Role: {{ role }} | <span id="connection-status">Offline</span></p>
+                </div>
+                <a href="/logout" class="bg-indigo-500 hover:bg-indigo-400 px-4 py-2 rounded-xl text-sm font-semibold transition shadow-lg">Logout</a>
+            </div>
+
+            <div class="p-8 space-y-10">
+                
+                {% if role == 'teacher' %}
+                <section class="space-y-6">
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center"><span class="mr-2">🍎</span> Teacher Control Panel</h2>
+
+                    <div class="bg-orange-50 border-2 border-orange-200 rounded-2xl p-6">
+                        <h3 class="text-orange-800 font-bold mb-4 flex items-center text-sm">⏳ Pending Join Requests</h3>
+                        <div class="space-y-3">
+                            {% for student, classroom in pending_requests %}
+                            <div class="flex justify-between items-center bg-white p-3 rounded-xl shadow-sm border border-orange-100">
+                                <span class="text-sm"><strong>{{ student.username }}</strong> &rarr; <strong>{{ classroom.name }}</strong></span>
+                                <a href="/approve_student/{{ student.id }}/{{ classroom.id }}" class="bg-orange-500 text-white px-4 py-1 rounded-lg text-xs font-bold">Approve</a>
+                            </div>
+                            {% endfor %}
+                            {% if not pending_requests %}<p class="text-orange-400 italic text-sm text-center">No pending requests.</p>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                        <h3 class="font-bold text-slate-800 mb-4 flex items-center text-sm">📝 Student Submissions to Grade</h3>
+                        <div class="space-y-4">
+                            {% for sub in submissions %}
+                            <div class="flex flex-col sm:flex-row justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100 gap-4">
+                                <div>
+                                    <p class="text-sm font-bold text-slate-700">{{ sub.student.username }}</p>
+                                    <p class="text-[10px] text-slate-500 truncate max-w-[200px]">{{ sub.file_path }}</p>
+                                    {% if sub.grade %}<p class="text-xs text-emerald-600 font-bold mt-1">Current Grade: {{ sub.grade }}</p>{% endif %}
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <a href="/view_assignment/{{ sub.file_path }}" target="_blank" class="text-blue-600 text-xs font-bold hover:underline bg-blue-50 px-3 py-1 rounded-lg border border-blue-100">View</a>
+                                    <a href="/download_assignment/{{ sub.file_path }}?download=true" class="text-indigo-600 text-xs font-bold hover:underline bg-white px-3 py-1 rounded-lg border border-indigo-100">Download</a>
+                                    <form action="/grade/{{ sub.id }}" method="POST" class="flex gap-2">
+                                        <input type="text" name="grade_value" placeholder="Grade" class="w-16 px-2 py-1 text-xs border rounded-lg outline-none focus:ring-1 focus:ring-indigo-400">
+                                        <button type="submit" class="bg-slate-800 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-black transition">Save</button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% if not submissions %}<p class="text-slate-400 italic text-sm text-center py-4">No submissions to display.</p>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-emerald-50 border-2 border-dashed border-emerald-200 rounded-2xl p-6">
+                            <p class="text-emerald-700 font-bold text-sm mb-4">Create New Class:</p>
+                            <form action="/create_class" method="post" class="space-y-3">
+                                <input type="text" name="class_name" placeholder="Class Name" required class="w-full px-4 py-2 rounded-xl border-0 shadow-sm text-sm outline-none">
+                                <button type="submit" class="w-full bg-emerald-600 text-white py-2 rounded-xl font-bold text-sm">Create</button>
+                            </form>
+                        </div>
+                        <div class="bg-indigo-50 border-2 border-dashed border-indigo-200 rounded-2xl p-6">
+                            <p class="text-indigo-700 font-bold text-sm mb-4">Post New Material:</p>
+                            <form action="/upload" method="post" enctype="multipart/form-data" class="space-y-3">
+                                <select name="classroom_id" required class="w-full text-sm border-0 rounded-xl px-4 py-2 shadow-sm bg-white">
+                                    <option value="">-- Select Class --</option>
+                                    {% for room in classrooms %}<option value="{{ room.id }}">{{ room.name }}</option>{% endfor %}
+                                </select>
+                                <input type="file" name="file" required class="text-xs w-full">
+                                <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-xl font-bold text-sm">Upload</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="p-2 bg-red-100 rounded-lg"><span class="text-red-600 font-bold">⚠️</span></div>
+                            <h3 class="font-bold text-slate-800">Password Reset Log</h3>
+                        </div>
+                        <div class="space-y-3">
+                            {% if reset_users %}
+                                {% for user in reset_users %}
+                                <div class="flex items-center justify-between p-3 bg-red-50 rounded-xl border border-red-100">
+                                    <div>
+                                        <p class="text-sm font-bold text-red-700">{{ user.username }}</p>
+                                        <p class="text-[10px] text-red-500 uppercase font-bold tracking-tight">Using Temporary Password</p>
+                                    </div>
+                                    <form action="/clear_reset/{{ user.id }}" method="POST">
+                                        <button class="text-[10px] bg-white border border-red-200 text-red-600 px-2 py-1 rounded-md hover:bg-red-600 hover:text-white transition">Acknowledge</button>
+                                    </form>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-sm text-slate-400 text-center py-4 italic">No active reset alerts.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </section>
+
+                {% else %}
+                <section class="space-y-6">
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center"><span class="mr-2">📝</span> Student Workspace</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-blue-50 border-2 border-dashed border-blue-200 rounded-2xl p-6">
+                            <h6 class="text-blue-700 font-bold text-sm mb-3">Join a Class:</h6>
+                            <form action="/join_class" method="POST" class="space-y-3">
+                                <select name="class_id" required class="w-full px-4 py-2 rounded-xl border-0 shadow-sm bg-white text-sm">
+                                    <option value="" disabled selected>-- Select Class --</option>
+                                    {% for classroom in classrooms %}<option value="{{ classroom.id }}">{{ classroom.name }}</option>{% endfor %}
+                                </select>
+                                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-xl font-bold text-sm">Request Access</button>
+                            </form>
+                        </div>
+
+                        <div class="bg-emerald-50 border-2 border-dashed border-emerald-200 rounded-2xl p-6">
+                            <p class="text-emerald-700 font-bold text-sm mb-3">Submit Completed Assignment:</p>
+                            <form action="/upload" method="post" enctype="multipart/form-data" class="space-y-3">
+                                <input type="file" name="file" required class="text-xs w-full">
+                                <button type="submit" class="w-full bg-emerald-600 text-white py-2 rounded-xl font-bold text-sm">Submit Work</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                        <h3 class="font-bold text-slate-800 mb-4 text-sm">📤 My Submissions & Grades</h3>
+                        <div class="space-y-2">
+                            {% for sub in submissions %}
+                            <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl text-xs">
+                                <span class="text-slate-600">{{ sub.file_path }}</span>
+                                <span class="font-bold {{ 'text-emerald-600' if sub.grade else 'text-slate-400' }}">
+                                    Grade: {{ sub.grade if sub.grade else 'Pending...' }}
+                                </span>
+                            </div>
+                            {% endfor %}
+                            {% if not submissions %}<p class="text-slate-400 italic text-xs text-center py-2">No work submitted yet.</p>{% endif %}
+                        </div>
+                    </div>
+                </section>
+                {% endif %}
+
+                <section>
+                    <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center"><span class="mr-2">📂</span> Course Materials</h2>
+                    <div class="grid grid-cols-1 gap-4">
+                        {% for item in materials %}
+                        <div class="flex justify-between items-center bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-200 transition">
+                            <div class="flex flex-col">
+                                <span class="font-medium text-slate-700">{{ item.title }}</span>
+                                <span class="text-[10px] text-indigo-500 font-bold uppercase tracking-wider">{{ item.classroom.name }}</span>
+                            </div>
+                            <div class="flex gap-4 items-center">
+                                <a href="/view/{{ item.file_path }}" target="_blank" class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-lg text-[10px] font-bold">View</a>
+                                {% if role == 'teacher' %}
+                                <a href="/delete_material/{{ item.id }}" class="text-red-500 hover:text-red-700 transition transform hover:scale-110">🗑️</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+
+                <div id="live-class-container" class="hidden mt-8 bg-slate-900 rounded-3xl overflow-hidden shadow-2xl border-4 border-indigo-500 flex flex-col h-[650px]">
+                    
+                    <div class="flex flex-1 overflow-hidden">
+                        <div class="relative flex-[3] bg-black flex items-center justify-center p-2">
+                            <div id="main-stage-tile" class="w-full h-full video-tile border-indigo-500/50">
+                                <video id="mainVideo" autoplay playsinline class="w-full h-full object-contain"></video>
+                                <div class="user-label" id="main-user-label">Waiting for presenter...</div>
+                                <div class="absolute top-4 left-4 flex gap-2">
+                                    <span class="bg-red-600 text-white px-3 py-1 rounded-lg text-[10px] font-black animate-pulse">LIVE</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="w-full md:w-80 bg-slate-800 border-l border-slate-700 flex flex-col">
+                            <div class="p-4 border-b border-slate-700 text-[10px] font-black text-slate-400 uppercase tracking-widest">Participants</div>
+                            <div id="remote-videos-container" class="flex-1 overflow-y-auto p-4 flex flex-col gap-4 min-h-0">
+                                </div>
+
+                            <div class="h-1/3 border-t border-slate-700 flex flex-col bg-slate-900">
+                                <div id="chat-box" class="flex-1 p-3 overflow-y-auto text-[11px] space-y-2 text-slate-300"></div>
+                                <div class="p-3 bg-slate-950">
+                                    <input type="text" id="chat-input" placeholder="Chat message..." class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-indigo-500">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-950 p-4 flex justify-between items-center border-t border-slate-800">
+                        <div class="flex gap-4">
+                            <button id="toggleMic" onclick="controlMic()" class="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-white transition">🎤</button>
+                            <button id="toggleCam" onclick="controlCam()" class="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-white transition">📷</button>
+                            <button id="shareScreen" onclick="controlScreen()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white font-bold text-xs transition">🖥️ Share Screen</button>
+                        </div>
+                        <button onclick="endClass()" class="px-6 py-2 bg-red-600 hover:bg-red-500 rounded-xl text-white font-bold text-xs transition">End Call</button>
+                    </div>
+                </div>
+
+                <div class="flex justify-center py-4" id="lobby-buttons">
+                    {% if role == 'teacher' %}
+                        <button onclick="initMeeting('teacher')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition transform hover:scale-105">🚀 Start Live Class</button>
+                    {% else %}
+                        <button onclick="initMeeting('student')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition transform hover:scale-105">📺 Join Live Class</button>
+                    {% endif %}
+                </div>
+
+                <section class="bg-slate-50 border-t border-slate-200 p-8 rounded-3xl">
+                    <h2 class="text-sm font-bold text-slate-800 mb-4 flex items-center"><span class="mr-2">🔒</span> Update Password</h2>
+                    <form action="/change_password" method="POST" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <input type="password" name="old_password" placeholder="Current Password" required class="px-4 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                        <input type="password" name="new_password" placeholder="New Password" required class="px-4 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button type="submit" class="bg-slate-800 text-white px-6 py-2 rounded-xl font-bold text-sm hover:bg-slate-700 transition">Update</button>
+                    </form>
+                </section>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        const ROOM_ID = 'main_classroom';
+        const USER_ROLE = "{{ role }}";
+        const USER_NAME = "{{ username }}";
+
+        let localStream;
+        let screenStream;
+        let peers = {}; // Object to hold PeerConnections for every user
+        const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+
+        async function initMeeting(role) {
+            document.getElementById('lobby-buttons').classList.add('hidden');
+            document.getElementById('live-class-container').classList.remove('hidden');
+            
+            try {
+                // Everyone shares camera by default
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                
+                // If I am teacher, I am on the main stage initially
+                if (USER_ROLE === 'teacher') {
+                    const video = document.getElementById('mainVideo');
+                    video.srcObject = localStream;
+                    video.muted = true;
+                    document.getElementById('main-user-label').innerText = "YOU (Teacher)";
+                    monitorAudio(localStream, 'main-stage-tile');
+                } else {
+                    // Students see themselves in a tile, and wait for teacher on main stage
+                    addLocalTileToSidebar(localStream);
+                }
+
+                // Tell the server we are joining
+                socket.emit('join-room', { room: ROOM_ID, username: USER_NAME, role: USER_ROLE });
+                document.getElementById('connection-status').innerText = "LIVE";
+            } catch (err) {
+                alert("Please enable camera and mic: " + err);
+            }
+        }
+
+        // Logic for setting up connections with others
+        socket.on('user-connected', async (data) => {
+            console.log("New participant joined:", data.username);
+            const pc = createPeerConnection(data.id, data.username, data.role);
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socket.emit('signal', { to: data.id, signal: offer });
+        });
+
+        socket.on('signal', async (data) => {
+    // If we don't already have a connection for this person, create one 
+    // using the username and role we just added to the signal in Python
+    let pc = peers[data.from] ? peers[data.from].pc : createPeerConnection(data.from, data.username, data.role);
+    
+    if (data.signal.type === 'offer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit('signal', { to: data.from, signal: answer });
+    } else if (data.signal.type === 'answer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
+    } else if (data.signal.candidate) {
+        await pc.addIceCandidate(new RTCIceCandidate(data.signal));
+    }
+});
+
+        function createPeerConnection(userId, username, role) {
+            const pc = new RTCPeerConnection(config);
+            peers[userId] = { pc, username, role };
+
+            // Send my stream to them
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+            pc.onicecandidate = (e) => {
+                if (e.candidate) socket.emit('signal', { to: userId, signal: e.candidate });
+            };
+
+            pc.ontrack = (e) => {
+                const stream = e.streams[0];
+                // If it's a teacher, put them on the main stage. Otherwise, sidebar.
+                if (role === 'teacher') {
+                    const video = document.getElementById('mainVideo');
+                    video.srcObject = stream;
+                    document.getElementById('main-user-label').innerText = `${username} (Teacher)`;
+                    monitorAudio(stream, 'main-stage-tile');
+                } else {
+                    addRemoteTile(stream, userId, username);
+                }
+            };
+
+            return pc;
+        }
+
+        function addLocalTileToSidebar(stream) {
+            const container = document.getElementById('remote-videos-container');
+            const tile = document.createElement('div');
+            tile.id = "local-student-tile";
+            tile.className = "video-tile h-32 w-full flex-shrink-0";
+            tile.innerHTML = `
+                <video id="localSideVideo" autoplay playsinline muted class="w-full h-full object-cover"></video>
+                <div class="user-label">YOU</div>
+            `;
+            container.appendChild(tile);
+            document.getElementById('localSideVideo').srcObject = stream;
+            monitorAudio(stream, 'local-student-tile');
+        }
+
+        function addRemoteTile(stream, userId, username) {
+            if (document.getElementById(`tile-${userId}`)) return;
+
+            const container = document.getElementById('remote-videos-container');
+            const tile = document.createElement('div');
+            tile.id = `tile-${userId}`;
+            tile.className = "video-tile h-32 w-full flex-shrink-0";
+            tile.innerHTML = `
+                <video id="video-${userId}" autoplay playsinline class="w-full h-full object-cover"></video>
+                <div class="user-label">${username}</div>
+                ${USER_ROLE === 'teacher' ? `
+                    <div class="absolute top-2 right-2 flex gap-1">
+                        <button onclick="forceMute('${userId}')" class="bg-red-600 text-white p-1 rounded text-[7px] font-black">MUTE</button>
+                    </div>
+                ` : ''}
+            `;
+            container.appendChild(tile);
+            document.getElementById(`video-${userId}`).srcObject = stream;
+            monitorAudio(stream, `tile-${userId}`);
+        }
+
+        // CONTROLS LOGIC
+        function controlMic() {
+            const track = localStream.getAudioTracks()[0];
+            track.enabled = !track.enabled;
+            document.getElementById('toggleMic').classList.toggle('bg-red-600');
+        }
+
+        function controlCam() {
+            const track = localStream.getVideoTracks()[0];
+            track.enabled = !track.enabled;
+            document.getElementById('toggleCam').classList.toggle('bg-red-600');
+        }
+
+        async function controlScreen() {
+            if (!screenStream) {
+                screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                const screenTrack = screenStream.getVideoTracks()[0];
+                
+                // Show locally if teacher
+                if(USER_ROLE === 'teacher') document.getElementById('mainVideo').srcObject = screenStream;
+
+                // Replace track for all peers
+                for (let id in peers) {
+                    const sender = peers[id].pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                    if (sender) sender.replaceTrack(screenTrack);
+                }
+
+                screenTrack.onended = () => controlScreen(); // Toggle back on stop
+                document.getElementById('shareScreen').innerText = "🛑 Stop Share";
+                document.getElementById('shareScreen').classList.replace('bg-indigo-600', 'bg-red-600');
+            } else {
+                screenStream.getTracks().forEach(t => t.stop());
+                screenStream = null;
+                const camTrack = localStream.getVideoTracks()[0];
+                
+                if(USER_ROLE === 'teacher') document.getElementById('mainVideo').srcObject = localStream;
+
+                for (let id in peers) {
+                    const sender = peers[id].pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                    if (sender) sender.replaceTrack(camTrack);
+                }
+                document.getElementById('shareScreen').innerText = "🖥️ Share Screen";
+                document.getElementById('shareScreen').classList.replace('bg-red-600', 'bg-indigo-600');
+            }
+        }
+
+        // SPEAKER DETECTION
+        function monitorAudio(stream, tileId) {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const analyser = audioContext.createAnalyser();
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+                analyser.fftSize = 256;
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                function detect() {
+                    analyser.getByteFrequencyData(dataArray);
+                    let sum = 0;
+                    for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+                    let average = sum / dataArray.length;
+
+                    const tile = document.getElementById(tileId);
+                    if (tile) {
+                        if (average > 35) tile.classList.add('speaking-border');
+                        else tile.classList.remove('speaking-border');
+                    }
+                    if (document.getElementById('live-class-container').classList.contains('hidden')) return;
+                    requestAnimationFrame(detect);
+                }
+                detect();
+            } catch(e) { console.warn("Audio monitoring failed", e); }
+        }
+
+        // TEACHER MODERATION
+        function forceMute(userId) {
+            socket.emit('moderator-action', { target: userId, action: 'mute' });
+        }
+
+        socket.on('mod-command', (data) => {
+            if (data.action === 'mute') {
+                localStream.getAudioTracks()[0].enabled = false;
+                document.getElementById('toggleMic').classList.add('bg-red-600');
+                alert("The teacher has muted your microphone.");
+            }
+        });
+
+        // CHAT LOGIC
+        document.getElementById('chat-input').addEventListener('keypress', e => {
+            if (e.key === 'Enter' && e.target.value.trim()) {
+                socket.emit('chat_message', { msg: e.target.value, room: ROOM_ID });
+                e.target.value = '';
+            }
+        });
+
+        socket.on('new_message', d => {
+            const cb = document.getElementById('chat-box');
+            cb.innerHTML += `<div class="bg-slate-800 p-2 rounded border border-slate-700"><b>${d.user}:</b> ${d.msg}</div>`;
+            cb.scrollTop = cb.scrollHeight;
+        });
+
+        socket.on('user-disconnected', (id) => {
+            if (peers[id]) {
+                peers[id].pc.close();
+                delete peers[id];
+                const tile = document.getElementById(`tile-${id}`);
+                if (tile) tile.remove();
+            }
+        });
+
+        function endClass() { location.reload(); }
+    </script>
+</body>
+</html>
