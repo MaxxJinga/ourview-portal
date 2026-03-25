@@ -4,6 +4,7 @@ from fileinput import filename
 from flask import Flask, render_template, request, redirect, session, flash, url_for, send_from_directory, Response
 from models import db, User, Material, Classroom, Submission, Notification, enrollment_table
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from flask import flash
 from flask import session, request
 from flask_mail import Mail, Message
@@ -16,10 +17,11 @@ app = Flask(__name__)
 
 # 1. SETUP CONFIGURATIONS
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///portal.db'
-app.config['UPLOAD_FOLDER'] = 'uploads'
+# We changed this from 'uploads' to 'static/uploads'
+app.config['UPLOAD_FOLDER'] = 'static/uploads' 
 app.secret_key = "super_secret_key"
 
-# --- EMAIL CONFIGURATION (Added only) ---
+# --- EMAIL CONFIGURATION (Keeping all your hard work here!) ---
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
@@ -28,8 +30,9 @@ app.config['MAIL_PASSWORD'] = os.environ.get('EMAIL_PASS')
 
 mail = Mail(app)
 
-os.makedirs('uploads/materials', exist_ok=True)
-os.makedirs('uploads/assignments', exist_ok=True)
+os.makedirs('static/uploads/materials', exist_ok=True)
+os.makedirs('static/uploads/assignments', exist_ok=True)
+os.makedirs('static/uploads/snapshots', exist_ok=True) # Add this for your Gallery!
 
 db.init_app(app)
 with app.app_context():
@@ -86,9 +89,11 @@ def handle_chat_message(data):
 
 @socketio.on('moderator-action')
 def handle_mod_action(data):
-    """Allows the teacher to mute students"""
-    # Only allow if the sender is actually a teacher
+    """Allows the teacher to mute or request unmute from students"""
+    # SECURITY: Only allow if the sender is actually a teacher
     if session.get('role') == 'teacher':
+        # We use 'to=' or 'room=' (they do the same thing)
+        # We pass the 'action' which will now be 'mute' OR 'unmute_request'
         emit('mod-command', {'action': data['action']}, to=data['target'])
 
 @socketio.on('disconnect')
@@ -180,39 +185,30 @@ def change_password():
         # You could add an error message here later
         return redirect('/')
 
-@app.route('/register', methods=['GET', 'POST'])
+# Define your secret teacher key here
+TEACHER_ACCESS_KEY = "OurviewStaff3006!" 
+
+@app.route('/register', methods=['POST'])
 def register():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        role = request.form.get('role', 'student')
+    role = request.form.get('role')
+    username = request.form.get('username')
+    password = request.form.get('password')
+    
+    # SECURITY CHECK
+    if role == 'teacher':
+        user_code = request.form.get('teacher_code')
+        if user_code != TEACHER_ACCESS_KEY:
+            flash("❌ Access Denied: Incorrect Teacher Code.", "danger")
+            return redirect(url_for('register'))
 
-        existing_user = User.query.filter((User.username == username) | (User.email == email)).first()
-        if existing_user:
-            # ADDED "error" category
-            flash('Username or Email is already registered!', 'error')
-            return redirect('/register')
-
-        try:
-            hashed_pw = generate_password_hash(password, method='pbkdf2:sha256')
-            new_user = User(username=username, email=email, password=hashed_pw, role=role)
-            
-            db.session.add(new_user)
-            db.session.commit()
-            
-            # ADDED "success" category
-            flash('Account created! You can now login.', 'success')
-            return redirect('/login')
-            
-        except Exception as e:
-            db.session.rollback()
-            print(f"Error saving to DB: {e}")
-            # ADDED "error" category
-            flash('Registration failed. Please try again.', 'error')
-            return redirect('/register')
-            
-    return render_template('register.html')
+    # If code is correct (or user is a student), proceed with registration
+    hashed_password = generate_password_hash(password)
+    new_user = User(username=username, password=hashed_password, role=role)
+    
+    db.session.add(new_user)
+    db.session.commit()
+    flash("Account created successfully!", "success")
+    return redirect(url_for('login'))
 
 @app.route('/request_reset', methods=['POST'])
 def request_reset():
@@ -330,17 +326,36 @@ def upload_file():
     db.session.commit()
     return redirect('/')
 
-@app.route('/join_class', methods=['POST'])
-def join_class():
-    class_id = request.form.get('class_id')
-    user = User.query.filter_by(username=session['username']).first()
-    db.session.execute(enrollment_table.insert().values(user_id=user.id, classroom_id=class_id, status='pending'))
+@app.route('/join_class/<int:class_id>', methods=['POST'])
+def join_class(class_id):
+    student_id = session.get('user_id')
     
-    teachers = User.query.filter_by(role='teacher').all()
-    for t in teachers:
-        db.session.add(Notification(user_id=t.id, message=f"{user.username} wants to join a class"))
+    # 1. Check if they are already IN the class
+    # 2. Check if they ALREADY sent a request
+    existing_request = enrollment_table.query.filter_by(
+        user_id=student_id, 
+        classroom_id=class_id
+    ).first()
+
+    if existing_request:
+        if existing_request.status == 'approved':
+            flash("✨ You are already a member of this class!", "info")
+        else:
+            flash("⏳ Request already sent! Please wait for teacher approval.", "warning")
+        return redirect(url_for('dashboard'))
+
+    # 3. If no request exists, create a new one
+    new_request = enrollment_table.insert().values(
+        user_id=student_id, 
+        classroom_id=class_id, 
+        status='pending'  # Set it to pending by default
+    )
+    
+    db.session.add(new_request)
     db.session.commit()
-    return redirect('/')
+    
+    flash("🚀 Request sent! Your teacher will review it shortly.", "success")
+    return redirect(url_for('dashboard'))
 
 @app.route('/approve_student/<int:u_id>/<int:c_id>')
 def approve_student(u_id, c_id):
@@ -384,6 +399,33 @@ def give_grade(submission_id):
         db.session.add(Notification(user_id=submission.student_id, message=f"Grade: {new_score}"))
         db.session.commit()
     return redirect('/')
+
+@app.route('/gallery')
+def gallery():
+    # This renders the new gallery.html file you created
+    return render_template('gallery.html')
+
+@app.route('/about')
+def about():
+    # This renders the new about.html file you created
+    return render_template('about.html')
+
+@app.route('/upload-snapshot', methods=['POST'])
+def upload_snapshot():
+    if session.get('role') != 'teacher':
+        return "Unauthorized", 403
+
+    if 'snapshot' not in request.files:
+        return "No file part", 400
+    
+    file = request.files['snapshot']
+    if file.filename == '':
+        return "No selected file", 400
+
+    if file:
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        return redirect(url_for('gallery')) # Send them to the gallery to see it!
 
 @app.route('/logout')
 def logout():

@@ -8,6 +8,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        html {
+    scroll-behavior: smooth;
+}
     /* 1. HEADER & LOGO STYLES */
     header a:hover img {
         transform: scale(1.05); /* Grows logo by 5% */
@@ -63,19 +66,23 @@
     }
 </style>
 </head>
-<body class="bg-slate-50 font-sans min-h-screen"><header style="display: flex; flex-direction: column; align-items: center; padding: 25px 20px; background: #ffffff; border-bottom: 1px solid #f0f0f0;">
+<body class="bg-slate-50 font-sans min-h-screen"><header style="display: flex; justify-content: space-between; align-items: center; padding: 10px 40px; background: #ffffff; border-bottom: 1px solid #f0f0f0; position: sticky; top: 0; z-index: 1000;">
     
-    <a href="/" style="text-decoration: none; display: flex; flex-direction: column; align-items: center;">
-        
+    <a href="/" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 4px;">
         <img src="{{ url_for('static', filename='logo.png') }}" 
              alt="Ourview Logo" 
-             style="height: 100px; width: auto; display: block; transition: transform 0.3s ease;">
-             
-        <p style="margin: 10px 0 0 0; font-family: 'Inter', sans-serif; color: #F97316; font-size: 0.85rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;">
-            Lerne mit uns...
-        </p>
+             style="height: 65px; width: auto; display: block; transition: transform 0.3s ease;">
         
+        <span style="font-family: 'Inter', sans-serif; color: #F97316; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; line-height: 1;">
+            Lerne mit uns...
+        </span>
     </a>
+
+    <nav style="display: flex; gap: 30px; align-items: center;">
+    <a href="/about" style="text-decoration: none; color: #1e293b; font-weight: 600; font-size: 0.9rem;">About Us</a>
+    <a href="/gallery" style="text-decoration: none; color: #1e293b; font-weight: 600; font-size: 0.9rem;">Gallery</a>
+    <a href="/logout" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-bold transition">Logout</a>
+</nav>
 </header>
 
     {% if notifications %}
@@ -167,7 +174,20 @@
                                 <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-xl font-bold text-sm">Upload</button>
                             </form>
                         </div>
-                    </div>
+                    </div>{% if session.get('role') == 'teacher' %}
+<div style="background: white; padding: 20px; border-radius: 15px; border: 2px dashed #F97316; margin-top: 20px;">
+    <h3 style="color: #1e293b; font-weight: 800; margin-bottom: 10px;">📸 Upload Gallery Snapshot</h3>
+    
+    <form action="/upload-snapshot" method="POST" enctype="multipart/form-data" style="display: flex; gap: 10px; align-items: center;">
+        <input type="file" name="snapshot" accept="image/*" required 
+               style="font-size: 0.8rem; color: #64748b;">
+        
+        <button type="submit" style="background: #F97316; color: white; padding: 8px 16px; border-radius: 8px; font-weight: 700; border: none; cursor: pointer;">
+            Upload to Gallery
+        </button>
+    </form>
+</div>
+{% endif %}
 
                     <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
                         <div class="flex items-center gap-3 mb-6">
@@ -300,7 +320,6 @@
                         <button onclick="initMeeting('student')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition transform hover:scale-105">📺 Join Live Class</button>
                     {% endif %}
                 </div>
-
                 <section class="bg-slate-50 border-t border-slate-200 p-8 rounded-3xl">
                     <h2 class="text-sm font-bold text-slate-800 mb-4 flex items-center"><span class="mr-2">🔒</span> Update Password</h2>
                     <form action="/change_password" method="POST" class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -458,9 +477,11 @@
             tile.innerHTML = `
                 <video id="video-${userId}" autoplay playsinline class="w-full h-full object-cover"></video>
                 <div class="user-label">${username}</div>
+                // Add an UNMUTE button next to the Mute button
                 ${USER_ROLE === 'teacher' ? `
                     <div class="absolute top-2 right-2 flex gap-1">
-                        <button onclick="forceMute('${userId}')" class="bg-red-600 text-white p-1 rounded text-[7px] font-black">MUTE</button>
+                    <button onclick="forceMute('${userId}')" class="bg-red-600 text-white p-1 rounded text-[7px] font-black">MUTE</button>
+                    <button onclick="askToUnmute('${userId}')" class="bg-emerald-600 text-white p-1 rounded text-[7px] font-black">UNMUTE</button>
                     </div>
                 ` : ''}
             `;
@@ -557,13 +578,27 @@ async function monitorAudio(stream, tileId) {
         }
 
         socket.on('mod-command', (data) => {
-            if (data.action === 'mute') {
-                localStream.getAudioTracks()[0].enabled = false;
-                document.getElementById('toggleMic').classList.add('bg-red-600');
-                alert("The teacher has muted your microphone.");
-            }
-        });
-
+    if (data.action === 'mute') {
+        localStream.getAudioTracks()[0].enabled = false;
+        document.getElementById('toggleMic').classList.add('bg-red-600');
+        alert("The teacher has muted you.");
+    } 
+    // ADD THIS PART BELOW:
+    else if (data.action === 'unmute_request') {
+        const confirmUnmute = confirm("The teacher would like you to unmute. Allow?");
+        if (confirmUnmute) {
+            localStream.getAudioTracks()[0].enabled = true;
+            document.getElementById('toggleMic').classList.remove('bg-red-600');
+        }
+    }
+});       
+        function askToUnmute(userId) {
+    // Ensure 'target' and 'action' match the keys in your Python 'data'
+    socket.emit('moderator-action', { 
+        target: userId, 
+        action: 'unmute_request' 
+    });
+}
         // CHAT LOGIC
         document.getElementById('chat-input').addEventListener('keypress', e => {
             if (e.key === 'Enter' && e.target.value.trim()) {

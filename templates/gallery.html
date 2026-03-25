@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ourview Gallery</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #fcfcfc; }
+        /* This hides the scrollbar but keeps the sliding working */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body>
+
+    <header style="display: flex; justify-content: space-between; align-items: center; padding: 10px 40px; background: #ffffff; border-bottom: 1px solid #f0f0f0;">
+        <a href="/dashboard" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Ourview Logo" style="height: 55px; width: auto;">
+            <span style="color: #F97316; font-size: 0.6rem; font-weight: 700; text-transform: uppercase;">Lerne mit uns...</span>
+        </a>
+        <nav>
+            <a href="/dashboard" style="background: #F97316; color: white; padding: 10px 22px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 0.85rem;">
+                ← Back to Workspace
+            </a>
+        </nav>
+    </header>
+
+    <main style="padding: 40px 20px;">
+        <section id="gallery-section" class="no-scrollbar" style="background: linear-gradient(to right, #5d4037, #3e2723); padding: 60px 20px; border-radius: 3rem; border: 8px solid #2d1b18; box-shadow: inset 0 0 50px rgba(0,0,0,0.5);">
+            
+            <h2 style="text-align: center; color: #fff; font-size: 2.5rem; font-weight: 800; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">
+                🌳 Ourview (Gallery)
+            </h2>
+            <p style="text-align: center; color: #F97316; font-weight: 700; margin-bottom: 40px;">THE FRUITS OF OUR LEARNING FOREST</p>
+
+            <div style="display: flex; gap: 25px; overflow-x: auto; padding: 20px;" class="no-scrollbar">
+                
+                <div style="min-width: 320px; background: rgba(255,255,255,0.95); padding: 30px; border-radius: 20px; border-left: 8px solid #F97316; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+                    <p style="font-style: italic; color: #4b5563; font-size: 1.1rem; line-height: 1.6;">"Ourview helped me pass my B2 German exam in record time!"</p>
+                    <p style="margin-top: 20px; font-weight: 800; color: #F97316; font-size: 1rem;">- Tonde Tondea., Student</p>
+                </div>
+
+                <div style="min-width: 220px; background: #fff; padding: 15px; border-radius: 15px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transform: rotate(1deg);">
+                    <div style="height: 160px; background: #f1f5f9; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #94a3b8; border: 2px dashed #cbd5e1; margin-bottom: 10px;">
+                         📸 Exam Preview
+                    </div>
+                    <p style="font-size: 0.75rem; font-weight: 800; color: #1e293b;">2025 Final Exam</p>
+                </div>
+
+                </div>
+            
+            <p style="text-align: center; color: #d7ccc8; font-size: 0.9rem; margin-top: 30px; font-weight: 600;">
+                Scroll sideways to see more certificates and testimonials →
+            </p>
+        </section>
+    </main>
+
+</body>
+</html>
