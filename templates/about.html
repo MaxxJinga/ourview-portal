@@ -26,21 +26,6 @@
         <a href="{{ url_for('logout') }}" style="background: #fee2e2; color: #ef4444; padding: 8px 15px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 0.8rem;">Logout</a>
     </nav>
 </header>
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    <div style="max-width: 1200px; margin: 20px auto; padding: 0 40px;">
-      {% for category, message in messages %}
-        <div style="padding: 15px 20px; border-radius: 12px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; font-weight: 600;
-             background-color: {{ '#dcfce7' if category == 'success' else '#fff7ed' if category == 'warning' else '#fee2e2' }}; 
-             color: {{ '#166534' if category == 'success' else '#9a3412' if category == 'warning' else '#991b1b' }};
-             border: 1px solid {{ '#bbf7d0' if category == 'success' else '#ffedd5' if category == 'warning' else '#fecaca' }};">
-          <span>{{ '✅' if category == 'success' else '⏳' if category == 'warning' else '❌' }}</span>
-          {{ message }}
-        </div>
-      {% endfor %}
-    </div>
-  {% endif %}
-{% endwith %}
 
     <main>
         <section style="padding: 80px 20px; max-width: 1000px; margin: 0 auto;">
