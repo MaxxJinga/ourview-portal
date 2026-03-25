@@ -62,7 +62,8 @@
         pointer-events: none; 
     }
 </style>
-</head><header style="display: flex; flex-direction: column; align-items: center; padding: 25px 20px; background: #ffffff; border-bottom: 1px solid #f0f0f0;">
+</head>
+<body class="bg-slate-50 font-sans min-h-screen"><header style="display: flex; flex-direction: column; align-items: center; padding: 25px 20px; background: #ffffff; border-bottom: 1px solid #f0f0f0;">
     
     <a href="/" style="text-decoration: none; display: flex; flex-direction: column; align-items: center;">
         
@@ -76,7 +77,6 @@
         
     </a>
 </header>
-<body class="bg-slate-50 font-sans min-h-screen">
 
     {% if notifications %}
     <div class="max-w-4xl mx-auto px-4 mt-6">
@@ -380,9 +380,36 @@
     }
 });
 
-        function createPeerConnection(userId, username, role) {
-            const pc = new RTCPeerConnection(config);
-            peers[userId] = { pc, username, role };
+    function createPeerConnection(userId, username, role) {
+    const pc = new RTCPeerConnection(config);
+    peers[userId] = { pc, username, role };
+
+    // Explicitly check for tracks
+    if (localStream) {
+        localStream.getTracks().forEach(track => {
+            console.log(`Sending ${track.kind} track to ${username}`);
+            pc.addTrack(track, localStream);
+        });
+    }
+
+    pc.onicecandidate = (e) => {
+        if (e.candidate) socket.emit('signal', { to: userId, signal: e.candidate });
+    };
+
+    pc.ontrack = (e) => {
+        const stream = e.streams[0];
+        if (role === 'teacher') {
+            const video = document.getElementById('mainVideo');
+            video.srcObject = stream;
+            video.muted = false; // ENSURE TEACHER IS NOT MUTED FOR STUDENTS
+            document.getElementById('main-user-label').innerText = `${username} (Teacher)`;
+            monitorAudio(stream, 'main-stage-tile');
+        } else {
+            addRemoteTile(stream, userId, username);
+        }
+    };
+
+    return pc;
 
             // Send my stream to them
             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
@@ -489,32 +516,40 @@
         }
 
         // SPEAKER DETECTION
-        function monitorAudio(stream, tileId) {
-            try {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const analyser = audioContext.createAnalyser();
-                const source = audioContext.createMediaStreamSource(stream);
-                source.connect(analyser);
-                analyser.fftSize = 256;
-                const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-                function detect() {
-                    analyser.getByteFrequencyData(dataArray);
-                    let sum = 0;
-                    for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-                    let average = sum / dataArray.length;
-
-                    const tile = document.getElementById(tileId);
-                    if (tile) {
-                        if (average > 35) tile.classList.add('speaking-border');
-                        else tile.classList.remove('speaking-border');
-                    }
-                    if (document.getElementById('live-class-container').classList.contains('hidden')) return;
-                    requestAnimationFrame(detect);
-                }
-                detect();
-            } catch(e) { console.warn("Audio monitoring failed", e); }
+        // IMPROVED AUDIO MONITORING
+async function monitorAudio(stream, tileId) {
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const analyser = audioContext.createAnalyser();
+        const source = audioContext.createMediaStreamSource(stream);
+        source.connect(analyser);
+        
+        // This solves the Chrome "Autoplay" block
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
         }
+
+        analyser.fftSize = 256;
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        function detect() {
+            if (!document.getElementById(tileId)) return; // Stop if tile is gone
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+            let average = sum / dataArray.length;
+
+            const tile = document.getElementById(tileId);
+            if (tile) {
+                // Adjusted sensitivity to 30
+                if (average > 30) tile.classList.add('speaking-border');
+                else tile.classList.remove('speaking-border');
+            }
+            requestAnimationFrame(detect);
+        }
+        detect();
+    } catch(e) { console.warn("Audio monitoring failed", e); }
+}
 
         // TEACHER MODERATION
         function forceMute(userId) {
@@ -555,9 +590,11 @@
         function endClass() { location.reload(); }
     </script>
 </body>
-<footer style="text-align: center; padding: 20px; margin-top: 50px; font-size: 0.9em; color: #666;">
-    <hr>
+<footer style="text-align: center; padding: 20px; margin-top: 50px; font-size: 0.9em; color: #666; border-top: 1px solid #eee;">
     <p>&copy; 2026 Ourview. All Rights Reserved.</p>
-    <p><a href="#">Impressum</a> | <a href="#">Contact Support</a></p>
+    <p>
+        <a href="#" style="color: #F97316; text-decoration: none;">Impressum</a> | 
+        <a href="#" style="color: #F97316; text-decoration: none;">Contact Support</a>
+    </p>
 </footer>
 </html>
