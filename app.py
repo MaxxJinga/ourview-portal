@@ -188,27 +188,32 @@ def change_password():
 # Define your secret teacher key here
 TEACHER_ACCESS_KEY = "OurviewStaff3006!" 
 
-@app.route('/register', methods=['POST'])
+@app.route('/register', methods=['GET', 'POST']) # 1. Added 'GET' here
 def register():
-    role = request.form.get('role')
-    username = request.form.get('username')
-    password = request.form.get('password')
-    
-    # SECURITY CHECK
-    if role == 'teacher':
-        user_code = request.form.get('teacher_code')
-        if user_code != TEACHER_ACCESS_KEY:
-            flash("❌ Access Denied: Incorrect Teacher Code.", "danger")
-            return redirect(url_for('register'))
+    # 2. Check if the user is SUBMITTING the form
+    if request.method == 'POST':
+        role = request.form.get('role')
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        # SECURITY CHECK
+        if role == 'teacher':
+            user_code = request.form.get('teacher_code')
+            if user_code != TEACHER_ACCESS_KEY:
+                flash("❌ Access Denied: Incorrect Teacher Code.", "danger")
+                return redirect(url_for('register'))
 
-    # If code is correct (or user is a student), proceed with registration
-    hashed_password = generate_password_hash(password)
-    new_user = User(username=username, password=hashed_password, role=role)
-    
-    db.session.add(new_user)
-    db.session.commit()
-    flash("Account created successfully!", "success")
-    return redirect(url_for('login'))
+        # Proceed with registration
+        hashed_password = generate_password_hash(password)
+        new_user = User(username=username, password=hashed_password, role=role)
+        
+        db.session.add(new_user)
+        db.session.commit()
+        flash("Account created successfully!", "success")
+        return redirect(url_for('login'))
+
+    # 3. If the user is just ARRIVING at the page (GET), show them the form
+    return render_template('register.html')
 
 @app.route('/request_reset', methods=['POST'])
 def request_reset():
