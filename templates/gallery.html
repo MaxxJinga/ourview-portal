@@ -15,17 +15,20 @@
 </head>
 <body>
 
-    <header style="display: flex; justify-content: space-between; align-items: center; padding: 10px 40px; background: #ffffff; border-bottom: 1px solid #f0f0f0;">
-        <a href="/dashboard" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 4px;">
-            <img src="{{ url_for('static', filename='logo.png') }}" alt="Ourview Logo" style="height: 55px; width: auto;">
-            <span style="color: #F97316; font-size: 0.6rem; font-weight: 700; text-transform: uppercase;">Lerne mit uns...</span>
-        </a>
-        <nav>
-            <a href="/dashboard" style="background: #F97316; color: white; padding: 10px 22px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 0.85rem;">
-                ← Back to Workspace
-            </a>
-        </nav>
-    </header>
+    <header style="display: flex; justify-content: space-between; align-items: center; padding: 15px 40px; background: white; border-bottom: 2px solid #f1f5f9;">
+    <a href="{{ url_for('dashboard') }}" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" style="height: 40px;">
+        <span style="color: #F97316; font-weight: 800; font-size: 1.2rem;">OURVIEW</span>
+    </a>
+
+    <nav style="display: flex; gap: 25px; align-items: center;">
+        <a href="{{ url_for('dashboard') }}" style="text-decoration: none; color: #475569; font-weight: 700; font-size: 0.9rem; border-bottom: 2px solid transparent;" onmouseover="this.style.color='#F97316'">🏡 Workspace</a>
+        <a href="{{ url_for('gallery') }}" style="text-decoration: none; color: #475569; font-weight: 700; font-size: 0.9rem;" onmouseover="this.style.color='#F97316'">🌳 Gallery</a>
+        <a href="{{ url_for('about') }}" style="text-decoration: none; color: #475569; font-weight: 700; font-size: 0.9rem;" onmouseover="this.style.color='#F97316'">📖 Our Story</a>
+        
+        <a href="{{ url_for('logout') }}" style="background: #fee2e2; color: #ef4444; padding: 8px 15px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 0.8rem;">Logout</a>
+    </nav>
+</header>
 
     <main style="padding: 40px 20px;">
         <section id="gallery-section" class="no-scrollbar" style="background: linear-gradient(to right, #5d4037, #3e2723); padding: 60px 20px; border-radius: 3rem; border: 8px solid #2d1b18; box-shadow: inset 0 0 50px rgba(0,0,0,0.5);">

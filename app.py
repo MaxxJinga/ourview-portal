@@ -331,35 +331,46 @@ def upload_file():
     db.session.commit()
     return redirect('/')
 
-@app.route('/join_class/<int:class_id>', methods=['POST'])
-def join_class(class_id):
+@app.route('/join_class', methods=['POST']) # No <int:class_id> here!
+def join_class():
     student_id = session.get('user_id')
-    
-    # 1. Check if they are already IN the class
-    # 2. Check if they ALREADY sent a request
-    existing_request = enrollment_table.query.filter_by(
+    if not student_id:
+        return redirect(url_for('login'))
+
+    # 1. Get the ID from the dropdown <select name="class_id">
+    class_id = request.form.get('class_id')
+
+    if not class_id:
+        flash("Please select a class from the list!", "warning")
+        return redirect(url_for('dashboard'))
+
+    # 2. Check if a request already exists
+    # We use .filter_by because enrollment_table is likely a model or Query object
+    existing = db.session.query(enrollment_table).filter_by(
         user_id=student_id, 
         classroom_id=class_id
     ).first()
-
-    if existing_request:
-        if existing_request.status == 'approved':
-            flash("✨ You are already a member of this class!", "info")
-        else:
-            flash("⏳ Request already sent! Please wait for teacher approval.", "warning")
+    
+    if existing:
+        flash("⏳ You already have a pending request for this class.", "info")
         return redirect(url_for('dashboard'))
 
-    # 3. If no request exists, create a new one
-    new_request = enrollment_table.insert().values(
-        user_id=student_id, 
-        classroom_id=class_id, 
-        status='pending'  # Set it to pending by default
-    )
+    # 3. Insert the new request
+    # Using your table name and standard SQLAlchemy insert
+    try:
+        new_req = enrollment_table.insert().values(
+            user_id=student_id, 
+            classroom_id=class_id, 
+            status='pending'
+        )
+        db.session.execute(new_req)
+        db.session.commit()
+        flash("🚀 Success! Request sent to the teacher.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash("❌ Error sending request. Please try again.", "danger")
+        print(f"Enrollment Error: {e}")
     
-    db.session.add(new_request)
-    db.session.commit()
-    
-    flash("🚀 Request sent! Your teacher will review it shortly.", "success")
     return redirect(url_for('dashboard'))
 
 @app.route('/approve_student/<int:u_id>/<int:c_id>')
