@@ -65,26 +65,43 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # A simple test to see if a student joined the "Classroom"
 @socketio.on('join-room')
 def handle_join_room(data):
-    room_id = data.get('room', 'main_classroom')
-    join_room(room_id)
+    # 1. GET DATA: From the join request
+    room_id = data.get('room')
+    user_id = session.get('user_id')
     
-    # 1. Get the name (check data first, then session)
-    user_name_to_send = data.get('username') or session.get('username') or "Student"
+    # 2. THE SECURITY CHECK: Is this user allowed in?
+    # We check if they are the teacher OR an approved student for THIS classroom_id
+    is_member = db.session.query(enrollment_table).filter_by(
+        user_id=user_id, 
+        classroom_id=room_id, 
+        status='approved'
+    ).first()
+
+    if is_member or session.get('role') == 'teacher':
+        # --- SUCCESS: Let them in ---
+        join_room(room_id)
+        
+        # YOUR UI LOGIC: Prepare the identity data for the video tiles
+        user_name_to_send = data.get('username') or session.get('username') or "Student"
+        
+        # Update session so the socket knows who this is for chat/signals
+        session['username'] = user_name_to_send
+        session['room'] = room_id
+        session['role'] = session.get('role', 'student')
+
+        # YOUR EMIT: Send the full ID and Username so the video tiles work perfectly
+        emit('user-connected', {
+            'id': request.sid, 
+            'username': user_name_to_send, 
+            'role': session['role']
+        }, to=room_id, include_self=False)
+
+        print(f"DEBUG: Authorized: {user_name_to_send} joined Live Class {room_id}")
     
-    # 2. Update session so chat stays fixed
-    session['username'] = user_name_to_send
-    session['room'] = room_id
-    session['role'] = data.get('role', 'student')
-
-    # 3. FIX: Send the name explicitly in the emit
-    # This is what the video tile uses to replace "undefined"
-    emit('user-connected', {
-        'id': request.sid, 
-        'username': user_name_to_send, 
-        'role': session['role']
-    }, to=room_id, include_self=False)
-
-    print(f"DEBUG: {user_name_to_send} joined {room_id}")
+    else:
+        # --- FAILURE: Kick them out ---
+        print(f"DEBUG: Unauthorized join attempt by user {user_id} for room {room_id}")
+        emit('error', {'msg': '❌ You are not an approved member of this class.'})
 
 @socketio.on('signal')
 def handle_signal(data):
@@ -165,15 +182,15 @@ def dashboard():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        identifier = request.form.get('username') # The input field
+        identifier = request.form.get('username')
         password = request.form.get('password')
         
-        # Check if 'identifier' matches username OR email column in your DB
         user = User.query.filter((User.username == identifier) | (User.email == identifier)).first()
         
         if user and check_password_hash(user.password, password):
             session['username'] = user.username
             session['role'] = user.role
+            session['user_id'] = user.id  # <--- CRITICAL: Add this line!
             return redirect('/')
         
         flash('Invalid username/email or password', 'error')
@@ -331,33 +348,62 @@ def view_assignment(filename):
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    if 'file' not in request.files: return redirect('/')
-    file = request.files['file']
-    if file.filename == '': return redirect('/')
+    # 1. BEST PRACTICE: Get user_id from session (more reliable than re-querying username)
+    user_id = session.get('user_id')
+    if not user_id: 
+        return redirect(url_for('login'))
 
-    if session['role'] == 'teacher':
-        classroom_id = request.form.get('classroom_id')
+    # 2. YOUR LOGIC: Basic file presence check
+    if 'file' not in request.files: 
+        return redirect(url_for('dashboard'))
+    file = request.files['file']
+    if file.filename == '': 
+        return redirect(url_for('dashboard'))
+
+    # 3. THE GATEKEEPER: Prevent students from uploading to unauthorized classes
+    classroom_id = request.form.get('classroom_id')
+    
+    if session.get('role') == 'student':
+        # Check if this student is 'approved' for this specific classroom ID
+        is_approved = db.session.query(enrollment_table).filter_by(
+            user_id=user_id, 
+            classroom_id=classroom_id, 
+            status='approved'
+        ).first()
+
+        if not is_approved:
+            flash("❌ Access Denied: You must be an approved member of this class to submit work.", "danger")
+            return redirect(url_for('dashboard'))
+
+    # 4. YOUR LOGIC: Save the file and update DB
+    if session.get('role') == 'teacher':
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], 'materials', file.filename))
         db.session.add(Material(title=file.filename, file_path=file.filename, class_id=classroom_id))
         
+        # Notify the approved students
         classroom = Classroom.query.get(classroom_id)
-        for s in classroom.students:
-            db.session.add(Notification(user_id=s.id, message=f"New Material in {classroom.name}"))
+        if classroom:
+            for s in classroom.students:
+                db.session.add(Notification(user_id=s.id, message=f"New Material in {classroom.name}"))
     else:
+        # Save assignment for student
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], 'assignments', file.filename))
-        user = User.query.filter_by(username=session['username']).first()
-        db.session.add(Submission(student_id=user.id, file_path=file.filename))
+        db.session.add(Submission(student_id=user_id, file_path=file.filename))
             
     db.session.commit()
-    return redirect('/')
+    flash("📤 Upload successful!", "success")
+    return redirect(url_for('dashboard'))
 
-@app.route('/join_class', methods=['POST']) # No <int:class_id> here!
+@app.route('/join_class', methods=['POST'])
 def join_class():
     student_id = session.get('user_id')
+    
+    # FIX: If session was lost, redirect to login
     if not student_id:
+        flash("Please log in to join a class.", "warning")
         return redirect(url_for('login'))
 
-    # 1. Get the ID from the dropdown <select name="class_id">
+    # 1. Get the ID from your dropdown
     class_id = request.form.get('class_id')
 
     if not class_id:
@@ -365,18 +411,16 @@ def join_class():
         return redirect(url_for('dashboard'))
 
     # 2. Check if a request already exists
-    # We use .filter_by because enrollment_table is likely a model or Query object
     existing = db.session.query(enrollment_table).filter_by(
         user_id=student_id, 
         classroom_id=class_id
     ).first()
     
     if existing:
-        flash("⏳ You already have a pending request for this class.", "info")
+        flash("⏳ You already have a request for this class.", "info")
         return redirect(url_for('dashboard'))
 
-    # 3. Insert the new request
-    # Using your table name and standard SQLAlchemy insert
+    # 3. Insert the new request with your Try/Except safety
     try:
         new_req = enrollment_table.insert().values(
             user_id=student_id, 

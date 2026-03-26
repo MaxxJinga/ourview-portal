@@ -3,8 +3,31 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register - School Portal</title>
+    <script>
+    // 1. Check system preference or saved setting
+    const currentTheme = localStorage.getItem('theme') || 
+                        (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    
+    document.documentElement.setAttribute('data-theme', currentTheme);
+
+    function toggleTheme() {
+        const newTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+    }
+    // Add this inside your <script> tags to listen for system changes live
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+    if (!localStorage.getItem('theme')) { // Only change if user hasn't manually picked a theme
+        const newTheme = e.matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', newTheme);
+    }
+});
+</script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="https://cdn.tailwindcss.com"></script>
-</head>
+</head>                         
+
+<button onclick="toggleTheme()" class="theme-btn">🌓 Switch Theme</button> 
 <body class="bg-slate-50 flex items-center justify-center min-h-screen">
     <div class="bg-white p-8 rounded-3xl shadow-xl w-96 border border-slate-100">
         <h2 class="text-2xl font-bold text-slate-800 mb-6 text-center">Create Account</h2>

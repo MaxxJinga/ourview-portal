@@ -5,6 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>School Portal - Dashboard</title>
+    <script>
+    // 1. Check system preference or saved setting
+    const currentTheme = localStorage.getItem('theme') || 
+                        (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    
+    document.documentElement.setAttribute('data-theme', currentTheme);
+
+    function toggleTheme() {
+        const newTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+    }
+    // Add this inside your <script> tags to listen for system changes live
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+    if (!localStorage.getItem('theme')) { // Only change if user hasn't manually picked a theme
+        const newTheme = e.matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', newTheme);
+    }
+});
+</script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -79,6 +100,8 @@
         <a href="{{ url_for('about') }}" style="text-decoration: none; color: #475569; font-weight: 700; font-size: 0.9rem;" onmouseover="this.style.color='#F97316'">📖 Our Story</a>
         
         <a href="{{ url_for('logout') }}" style="background: #fee2e2; color: #ef4444; padding: 8px 15px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 0.8rem;">Logout</a>
+
+    <button onclick="toggleTheme()" class="theme-btn">🌓 Switch Theme</button>    
     </nav>
 </header>
 
@@ -316,11 +339,24 @@
                 </div>
 
                 <div class="flex justify-center py-4" id="lobby-buttons">
-                    {% if role == 'teacher' %}
-                        <button onclick="initMeeting('teacher')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition transform hover:scale-105">🚀 Start Live Class</button>
-                    {% else %}
-                        <button onclick="initMeeting('student')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition transform hover:scale-105">📺 Join Live Class</button>
-                    {% endif %}
+                    {% for room in classrooms %}
+    <div class="class-card">
+        <h3>{{ room.name }}</h3>
+        
+        {% if role == 'teacher' %}
+            <button onclick="ROOM_ID='{{ room.id }}'; initMeeting('teacher')" 
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition transform hover:scale-105">
+                🚀 Start Live Class
+            </button>
+        {% else %}
+            <button onclick="ROOM_ID='{{ room.id }}'; initMeeting('student')" 
+                    class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition transform hover:scale-105">
+                📺 Join Live Class
+            </button>
+        {% endif %}
+    </div>
+{% endfor %}
+
                 </div>
                 <section class="bg-slate-50 border-t border-slate-200 p-8 rounded-3xl">
                     <h2 class="text-sm font-bold text-slate-800 mb-4 flex items-center"><span class="mr-2">🔒</span> Update Password</h2>
@@ -338,7 +374,7 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
         const socket = io();
-        const ROOM_ID = 'main_classroom';
+        let ROOM_ID = ""; // Changed from const to let so we can update it
         const USER_ROLE = "{{ role }}";
         const USER_NAME = "{{ username }}";
 
@@ -347,7 +383,8 @@
         let peers = {}; // Object to hold PeerConnections for every user
         const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
 
-        async function initMeeting(role) {
+        async function initMeeting(role, roomId) {
+            ROOM_ID = roomId; // This saves the ID from the button click
             document.getElementById('lobby-buttons').classList.add('hidden');
             document.getElementById('live-class-container').classList.remove('hidden');
             
