@@ -37,7 +37,27 @@ os.makedirs('static/uploads/snapshots', exist_ok=True) # Add this for your Galle
 db.init_app(app)
 with app.app_context():
     db.create_all()
+# 1. Inside app.py, right after db.init_app(app)
+with app.app_context():
+    # This is the "Hammer" - it creates any missing tables (like Notification)
+    db.create_all() 
+    
+    # 2. Add the missing 'email' column manually if it's not there
+    # We use 'try' so it doesn't crash if the column ALREADY exists
+    try:
+        from sqlalchemy import text
+        db.session.execute(text('ALTER TABLE user ADD COLUMN email VARCHAR(120)'))
+        db.session.commit()
+        print("Successfully added email column!")
+    except Exception as e:
+        print("Email column already exists or couldn't be added.")
 
+    # 3. Add the missing 'reset_requested' column
+    try:
+        db.session.execute(text('ALTER TABLE user ADD COLUMN reset_requested BOOLEAN DEFAULT 0'))
+        db.session.commit()
+    except:
+        pass
 
 # After app.config settings
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -104,7 +124,7 @@ def handle_disconnect():
 
 # 3. THE ROUTES
 @app.route('/')
-def home():
+def dashboard():
     if 'username' not in session:
         return redirect('/login')
     user = User.query.filter_by(username=session['username']).first()
