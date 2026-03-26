@@ -17,9 +17,6 @@ app = Flask(__name__)
 
 # 1. SETUP CONFIGURATIONS
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///portal.db'
-with app.app_context():
-    # This creates the tables/columns if they don't exist
-    db.create_all()
 # We changed this from 'uploads' to 'static/uploads'
 app.config['UPLOAD_FOLDER'] = 'static/uploads' 
 app.secret_key = "super_secret_key"
